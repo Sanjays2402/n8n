@@ -43,6 +43,16 @@ export interface SsrfBridge {
 	createSecureLookup(): LookupFunction;
 }
 
+/**
+ * Structural twin of `RedactionEnforcementSettings` from `@n8n/api-types`.
+ * Defined here so packages/core can use it without importing from packages/cli.
+ */
+export interface RedactionEnforcement {
+	enforced: boolean;
+	manual: boolean;
+	production: boolean;
+}
+
 declare module 'n8n-workflow' {
 	interface IWorkflowExecuteAdditionalData {
 		hooks?: ExecutionLifecycleHooks;
@@ -79,6 +89,13 @@ declare module 'n8n-workflow' {
 		 * Contains workflow-level configuration including credential resolver ID.
 		 */
 		workflowSettings?: IWorkflowSettings;
+		/**
+		 * Instance-level redaction enforcement snapshot, pre-resolved at execution
+		 * setup time (only populated when N8N_ENV_FEAT_REDACTION_ENFORCEMENT=true).
+		 */
+		redactionContext?: {
+			enforcement: RedactionEnforcement;
+		};
 	}
 }
 
