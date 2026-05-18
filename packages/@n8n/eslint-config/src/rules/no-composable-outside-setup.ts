@@ -2,6 +2,7 @@ import { ESLintUtils } from '@typescript-eslint/utils';
 import type { TSESTree } from '@typescript-eslint/utils';
 
 const COMPOSABLE_PATTERN = /^use[A-Z]/;
+const STORE_PATTERN = /^use[A-Z]\w*Store$/;
 
 type FunctionNode =
 	| TSESTree.FunctionDeclaration
@@ -51,11 +52,15 @@ export const NoComposableOutsideSetupRule = ESLintUtils.RuleCreator.withoutDocs(
 		type: 'problem',
 		docs: {
 			description:
-				'Disallow calling composables (use*) outside of <script setup>, setup(), defineStore(), or another composable.',
+				'Disallow calling composables (use*) outside of <script setup>, setup(), defineStore(), or another composable. Also disallow non-hoisted composable calls nested inside functions within a composable.',
 		},
 		messages: {
 			noComposableOutsideSetup:
 				'"{{ name }}" is a composable and must be called inside <script setup>, a setup() function, or another composable.',
+			composableNotHoisted:
+				'"{{ name }}" must be called at the top level of the composable, not inside a nested function. Hoist it to the composable body so it runs at setup time.',
+			noComposableInStore:
+				'"{{ name }}" is a composable and must not be called inside a Pinia store definition. Extract it into a composable and pass the result to the store.',
 		},
 		schema: [],
 	},
@@ -65,14 +70,37 @@ export const NoComposableOutsideSetupRule = ESLintUtils.RuleCreator.withoutDocs(
 			CallExpression(node) {
 				if (node.callee.type !== 'Identifier') return;
 				if (!COMPOSABLE_PATTERN.test(node.callee.name)) return;
+				if (STORE_PATTERN.test(node.callee.name)) return;
 
 				let current: TSESTree.Node | undefined = node.parent;
+				let passedNonSetupFunction = false;
+
 				while (current) {
 					if (isFunctionNode(current)) {
+						if (isDefineStoreCallback(current)) {
+							context.report({
+								node,
+								messageId: 'noComposableInStore',
+								data: { name: node.callee.name },
+							});
+							return;
+						}
+
 						const name = getFunctionName(current);
-						if (name && COMPOSABLE_PATTERN.test(name)) return;
-						if (name === 'setup') return;
-						if (isDefineStoreCallback(current)) return;
+						const isSetupContext = (name && COMPOSABLE_PATTERN.test(name)) || name === 'setup';
+
+						if (isSetupContext) {
+							if (passedNonSetupFunction) {
+								context.report({
+									node,
+									messageId: 'composableNotHoisted',
+									data: { name: node.callee.name },
+								});
+							}
+							return;
+						}
+
+						passedNonSetupFunction = true;
 					}
 					current = current.parent;
 				}

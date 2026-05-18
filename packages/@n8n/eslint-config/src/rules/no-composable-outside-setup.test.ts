@@ -34,17 +34,6 @@ ruleTester.run('no-composable-outside-setup', NoComposableOutsideSetupRule, {
 			filename: '/test/useToast.ts',
 		},
 		{
-			name: 'nested inside a callback within a composable',
-			code: `
-				export function useToast() {
-					onMounted(() => {
-						const route = useRoute();
-					});
-				}
-			`,
-			filename: '/test/useToast.ts',
-		},
-		{
 			name: 'inside setup() method',
 			code: `
 				export default defineComponent({
@@ -57,7 +46,7 @@ ruleTester.run('no-composable-outside-setup', NoComposableOutsideSetupRule, {
 			filename: '/test/MyComponent.ts',
 		},
 		{
-			name: 'inside defineStore callback',
+			name: 'store call inside defineStore callback',
 			code: `
 				export const useMyStore = defineStore('my-store', () => {
 					const other = useOtherStore();
@@ -65,6 +54,22 @@ ruleTester.run('no-composable-outside-setup', NoComposableOutsideSetupRule, {
 				});
 			`,
 			filename: '/test/myStore.ts',
+		},
+		{
+			name: 'store call at module top level in .ts file',
+			code: `
+				const settings = useSettingsStore();
+			`,
+			filename: '/test/utils.ts',
+		},
+		{
+			name: 'store call inside a regular function',
+			code: `
+				function handleClick() {
+					const settings = useSettingsStore();
+				}
+			`,
+			filename: '/test/handlers.ts',
 		},
 		{
 			name: 'inside a .vue file (script setup)',
@@ -152,6 +157,94 @@ ruleTester.run('no-composable-outside-setup', NoComposableOutsideSetupRule, {
 				{ messageId: 'noComposableOutsideSetup', data: { name: 'useToast' } },
 				{ messageId: 'noComposableOutsideSetup', data: { name: 'useRoute' } },
 			],
+		},
+		{
+			name: 'composable inside a nested function within a composable',
+			code: `
+				export function useHandler() {
+					async function handle() {
+						const toast = useToast();
+					}
+				}
+			`,
+			filename: '/test/useHandler.ts',
+			errors: [{ messageId: 'composableNotHoisted', data: { name: 'useToast' } }],
+		},
+		{
+			name: 'composable inside a callback within a composable',
+			code: `
+				export function useToast() {
+					onMounted(() => {
+						const route = useRoute();
+					});
+				}
+			`,
+			filename: '/test/useToast.ts',
+			errors: [{ messageId: 'composableNotHoisted', data: { name: 'useRoute' } }],
+		},
+		{
+			name: 'composable inside an arrow function within a composable',
+			code: `
+				export const useHandler = () => {
+					const handle = () => {
+						const i18n = useI18n();
+					};
+				};
+			`,
+			filename: '/test/useHandler.ts',
+			errors: [{ messageId: 'composableNotHoisted', data: { name: 'useI18n' } }],
+		},
+		{
+			name: 'composable inside a nested function within setup()',
+			code: `
+				export default defineComponent({
+					setup() {
+						function onClick() {
+							const toast = useToast();
+						}
+					},
+				});
+			`,
+			filename: '/test/MyComponent.ts',
+			errors: [{ messageId: 'composableNotHoisted', data: { name: 'useToast' } }],
+		},
+		{
+			name: 'composable directly inside defineStore()',
+			code: `
+				export const useMyStore = defineStore('my-store', () => {
+					const toast = useToast();
+					return { toast };
+				});
+			`,
+			filename: '/test/myStore.ts',
+			errors: [{ messageId: 'noComposableInStore', data: { name: 'useToast' } }],
+		},
+		{
+			name: 'composable inside a nested function within defineStore()',
+			code: `
+				export const useMyStore = defineStore('my-store', () => {
+					function someAction() {
+						const toast = useToast();
+					}
+					return { someAction };
+				});
+			`,
+			filename: '/test/myStore.ts',
+			errors: [{ messageId: 'noComposableInStore', data: { name: 'useToast' } }],
+		},
+		{
+			name: 'composable inside a store action (arrow function)',
+			code: `
+				export const useMyStore = defineStore('my-store', () => {
+					const fetchData = async () => {
+						const toast = useToast();
+						toast.showMessage('done');
+					};
+					return { fetchData };
+				});
+			`,
+			filename: '/test/myStore.ts',
+			errors: [{ messageId: 'noComposableInStore', data: { name: 'useToast' } }],
 		},
 	],
 });
