@@ -5,13 +5,14 @@ import { AGENT_SCHEDULE_TRIGGER_TYPE } from '@n8n/api-types';
 import { N8nButton, N8nIcon, N8nText, N8nTooltip } from '@n8n/design-system';
 import { updatedIconSet, type IconName } from '@n8n/design-system/components/N8nIcon';
 import { useI18n } from '@n8n/i18n';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import type { AgentJsonConfig, AgentJsonToolRef } from '../types';
 import type { AgentSkill, CustomToolEntry } from '../types';
 import { useAgentIntegrationsCatalog } from '../composables/useAgentIntegrationsCatalog';
 import { toolRefToNode } from '../composables/useAgentToolRefAdapter';
 import { formatToolNameForDisplay } from '../utils/toolDisplayName';
 import AgentChipButton from './AgentChipButton.vue';
+import AgentChannelModal, { type ChannelView } from './AgentChannelModal.vue';
 
 const props = withDefaults(
 	defineProps<{
@@ -45,6 +46,10 @@ const i18n = useI18n();
 const nodeTypesStore = useNodeTypesStore();
 
 const { catalog } = useAgentIntegrationsCatalog();
+
+// Channel modal state
+const channelModalOpen = ref(false);
+const channelModalView = ref<ChannelView>('list');
 
 function isIconName(icon: unknown): icon is IconName {
 	return typeof icon === 'string' && icon in updatedIconSet;
@@ -111,6 +116,18 @@ const toolRows = computed(() =>
 		fallbackIcon: toolIcon(tool),
 	})),
 );
+
+// Open channel modal for adding a new channel
+function openChannelModal() {
+	channelModalView.value = 'list';
+	channelModalOpen.value = true;
+}
+
+// Open channel modal for editing an existing channel
+function openChannelEdit(channelType: string) {
+	channelModalView.value = `${channelType}_edit` as ChannelView;
+	channelModalOpen.value = true;
+}
 </script>
 
 <template>
@@ -130,7 +147,7 @@ const toolRows = computed(() =>
 					:key="trigger.type"
 					:icon="trigger.icon"
 					data-testid="agent-capabilities-trigger-row"
-					@click="emit('open-trigger', trigger.type)"
+					@click="openChannelEdit(trigger.type)"
 				>
 					{{ trigger.label }}
 				</AgentChipButton>
@@ -146,7 +163,7 @@ const toolRows = computed(() =>
 						:icon-only="hasTriggers"
 						:disabled="props.disabled"
 						data-testid="agent-capabilities-add-trigger"
-						@click="emit('add-trigger')"
+						@click="openChannelModal"
 					>
 						<template #icon><N8nIcon icon="plus" :size="16" color="text-light" /></template>
 						<template v-if="!hasTriggers">
@@ -244,6 +261,14 @@ const toolRows = computed(() =>
 			</div>
 		</div>
 	</div>
+
+	<AgentChannelModal
+		v-model:open="channelModalOpen"
+		v-model:view="channelModalView"
+		:agent-id="agentId"
+		:project-id="projectId"
+		:connected-channels="connectedTriggers"
+	/>
 </template>
 
 <style module lang="scss">
