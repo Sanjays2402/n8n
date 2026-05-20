@@ -1365,6 +1365,10 @@ export interface INodeCredentials {
 	[key: string]: INodeCredentialsDetails;
 }
 
+export interface ICustomTelemetryTags {
+	tag?: Array<{ key: string; value: string }>;
+}
+
 export type OnError = 'continueErrorOutput' | 'continueRegularOutput' | 'stopWorkflow';
 export interface INode {
 	id: string;
@@ -1382,9 +1386,7 @@ export interface INode {
 	executeOnce?: boolean;
 	onError?: OnError;
 	continueOnFail?: boolean;
-	customTelemetryTags?: {
-		tag?: Array<{ key: string; value: string }>;
-	};
+	customTelemetryTags?: ICustomTelemetryTags;
 	parameters: INodeParameters;
 	credentials?: INodeCredentials;
 	webhookId?: string;
@@ -3307,6 +3309,8 @@ export interface IWorkflowSettings {
 	availableInMCP?: boolean;
 	credentialResolverId?: string;
 	redactionPolicy?: WorkflowSettings.RedactionPolicy;
+	customTelemetryTags?: ICustomTelemetryTags;
+	customTelemetryTagsApplyToNodeSpans?: boolean;
 }
 
 export interface WorkflowFEMeta {
