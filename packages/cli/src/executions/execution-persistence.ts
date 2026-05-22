@@ -30,7 +30,6 @@ import type {
 	WorkflowSnapshot,
 } from './execution-data/types';
 import { DuplicateExecutionError } from '../errors/duplicate-execution.error';
-import { get } from 'psl';
 
 type DeletionTarget = ExecutionRef & { storedAt: ExecutionDataStorageLocation };
 
