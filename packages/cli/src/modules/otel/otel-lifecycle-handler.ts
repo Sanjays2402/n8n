@@ -61,8 +61,6 @@ export class OtelLifecycleHandler {
 				nodeCount: ctx.workflow.nodes.length,
 			},
 			customAttributes: this.buildWorkflowCustomAttributes(ctx),
-			customAttributesApplyToNodeSpans:
-				ctx.workflow.settings?.customTelemetryTagsApplyToNodeSpans !== false,
 		});
 
 		// Given we have now started a "workflow" we should persist the traceparent - it will change the
@@ -96,8 +94,6 @@ export class OtelLifecycleHandler {
 				nodeCount: ctx.workflow.nodes.length,
 			},
 			customAttributes: this.buildWorkflowCustomAttributes(ctx),
-			customAttributesApplyToNodeSpans:
-				ctx.workflow.settings?.customTelemetryTagsApplyToNodeSpans !== false,
 		});
 	}
 

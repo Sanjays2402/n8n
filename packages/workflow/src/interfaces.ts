@@ -3315,7 +3315,6 @@ export interface IWorkflowSettings {
 	credentialResolverId?: string;
 	redactionPolicy?: WorkflowSettings.RedactionPolicy;
 	customTelemetryTags?: ICustomTelemetryTags;
-	customTelemetryTagsApplyToNodeSpans?: boolean;
 }
 
 export interface WorkflowFEMeta {
