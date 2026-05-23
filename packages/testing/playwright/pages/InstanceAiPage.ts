@@ -257,12 +257,13 @@ export class InstanceAiPage extends BasePage {
 	}
 
 	/**
-	 * Wait for the plan-review panel to appear and approve it. New workflow
-	 * builds now route through the planner and pause at `awaiting_approval`
-	 * until the user approves — without this step the build never starts.
+	 * Wait for the workflow build approval and approve it. Builder runs may
+	 * render either the older plan-review panel or the standard tool approval
+	 * row for the direct `build-workflow` skill path.
 	 */
 	async approveBuildPlan(timeout = 120_000): Promise<void> {
-		await this.getPlanApproveButton().waitFor({ state: 'visible', timeout });
-		await this.getPlanApproveButton().click();
+		const approveButton = this.getPlanApproveButton().or(this.getConfirmApproveButton()).first();
+		await approveButton.waitFor({ state: 'visible', timeout });
+		await approveButton.click();
 	}
 }

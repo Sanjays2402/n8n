@@ -172,7 +172,7 @@ test.describe(
 		});
 
 		// The ticket's autonomous "similar workflow" edit and this explicit edit both
-		// converge on build-workflow-with-agent with a workflowId before the builder spawns.
+		// converge on build-workflow with a workflowId before the workflow is updated.
 		test('should require approval before editing an existing workflow and apply after approval', async ({
 			n8n,
 		}) => {
@@ -188,8 +188,10 @@ test.describe(
 			);
 
 			await expect(
-				n8n.instanceAi.getConfirmationText(`Edit ${APPROVE_EDIT_WORKFLOW_NAME}`),
-			).toBeVisible({ timeout: 120_000 });
+				n8n.instanceAi.getConfirmationText(`Update workflow ${workflow.id}`),
+			).toBeVisible({
+				timeout: 120_000,
+			});
 			await expect(n8n.instanceAi.getConfirmApproveButton()).toBeVisible({ timeout: 120_000 });
 			const whileAwaitingApproval = await n8n.api.workflows.getWorkflow(workflow.id);
 			expect(workflowSignature(whileAwaitingApproval)).toBe(beforeEditSignature);
@@ -222,8 +224,10 @@ test.describe(
 			);
 
 			await expect(
-				n8n.instanceAi.getConfirmationText(`Edit ${DENY_EDIT_WORKFLOW_NAME}`),
-			).toBeVisible({ timeout: 120_000 });
+				n8n.instanceAi.getConfirmationText(`Update workflow ${workflow.id}`),
+			).toBeVisible({
+				timeout: 120_000,
+			});
 			await expect(n8n.instanceAi.getConfirmDenyButton()).toBeVisible({ timeout: 120_000 });
 			await n8n.instanceAi.getConfirmDenyButton().click();
 			await n8n.instanceAi.waitForResponseComplete();
