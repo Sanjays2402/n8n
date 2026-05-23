@@ -45,4 +45,35 @@ describe('Instance AI runtime skills', () => {
 		}
 		expect(loadResult.content).toContain('Fast Routing');
 	});
+
+	it('loads the bundled workflow-builder skill', async () => {
+		const source = loadInstanceAiRuntimeSkillSource();
+		const workflowBuilder = source.registry.skills.find(
+			(skill) => skill.name === 'workflow-builder',
+		);
+
+		expect(workflowBuilder).toMatchObject({
+			name: 'workflow-builder',
+			description:
+				'Builds and edits n8n workflows directly with the workflow SDK and the build-workflow tool. Use for workflow creation, workflow edits, fixes, node rewiring, credential-preserving patches, and workflow validation retries.',
+			platforms: ['daytona'],
+			recommendedTools: [
+				'build-workflow',
+				'workflows',
+				'credentials',
+				'nodes',
+				'data-tables',
+				'parse-file',
+				'ask-user',
+			],
+		});
+
+		const loadTool = createSkillLoadTool(source);
+		const loadResult = await loadTool.handler?.({ skillId: 'workflow-builder' }, {});
+		expect(loadResult).toMatchObject({
+			success: true,
+			skillId: 'workflow-builder',
+			name: 'workflow-builder',
+		});
+	});
 });

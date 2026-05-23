@@ -126,11 +126,12 @@ describe('getSystemPrompt', () => {
 			expect(prompt).toContain('Do not call `plan`, `create-tasks`, or `delegate`');
 		});
 
-		it('routes existing-workflow edits through bypassPlan', () => {
+		it('routes existing-workflow edits through the workflow-builder skill and build-workflow', () => {
 			const prompt = getSystemPrompt({});
 
 			expect(prompt).toMatch(/Any edit to an existing workflow that runs the builder/);
-			expect(prompt).toContain('`bypassPlan: true`');
+			expect(prompt).toContain('load the `workflow-builder` skill');
+			expect(prompt).toContain('call `build-workflow` directly');
 			expect(prompt).toContain('existing `workflowId`');
 		});
 
@@ -149,7 +150,7 @@ describe('getSystemPrompt', () => {
 		});
 	});
 
-	describe('post-build verify for bypassPlan', () => {
+	describe('post-build verify for planned builds', () => {
 		it('uses verificationReadiness as the post-build routing signal', () => {
 			const prompt = getSystemPrompt({});
 
@@ -183,14 +184,14 @@ describe('getSystemPrompt', () => {
 			expect(prompt).toContain('building first and routing setup after verification');
 		});
 
-		it('reads workflowId/workItemId from the outcome field, not result', () => {
+		it('reads workflowId/workItemId from planned task outcomes', () => {
 			const prompt = getSystemPrompt({});
 
 			expect(prompt).toContain('outcome.workflowId');
 			expect(prompt).toContain('outcome.workItemId');
 			expect(prompt).toContain('outcome.verificationReadiness');
 			expect(prompt).toContain('outcome.setupRequirement');
-			expect(prompt).toMatch(/result.*only a short text summary/);
+			expect(prompt).toContain('<planned-task-follow-up type="checkpoint">');
 		});
 
 		it('reuses deterministic already-verified readiness instead of re-running verify', () => {
@@ -232,31 +233,21 @@ describe('getSystemPrompt', () => {
 			);
 		});
 
-		it('tells the orchestrator it may patch during a checkpoint and will re-enter the same checkpoint', () => {
+		it('tells the orchestrator it may patch directly during a checkpoint', () => {
 			const prompt = getSystemPrompt({});
 
 			expect(prompt).toContain('patch in place');
-			expect(prompt).toMatch(
-				/you will receive another `<planned-task-follow-up type="checkpoint">` for the SAME checkpoint/,
-			);
-			expect(prompt).toContain('re-verify');
+			expect(prompt).toContain('load `workflow-builder`');
+			expect(prompt).toContain('call `build-workflow` with `workflowId` + targeted `patches`');
+			expect(prompt).toContain('Re-run verification after the patch');
 			expect(prompt).toContain('complete-checkpoint');
 		});
 
-		it('allows one more in-checkpoint patch if the first surfaced a new narrow bug', () => {
+		it('keeps checkpoint patch attempts bounded', () => {
 			const prompt = getSystemPrompt({});
 
-			expect(prompt).toMatch(/call `complete-checkpoint`.*OR spawn one more in-checkpoint patch/);
 			expect(prompt).toMatch(/Keep the patch count small/);
 			expect(prompt).toMatch(/within two rounds/);
-		});
-
-		it('still warns not to end a checkpoint turn with an unsettled in-turn patch', () => {
-			const prompt = getSystemPrompt({});
-
-			expect(prompt).toMatch(
-				/Do NOT end a checkpoint turn that had an in-turn patch spawned without either calling `complete-checkpoint` on the next re-entry or spawning another bounded patch/,
-			);
 		});
 	});
 

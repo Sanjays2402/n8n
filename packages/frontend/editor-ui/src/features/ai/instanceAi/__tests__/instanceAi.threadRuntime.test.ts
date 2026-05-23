@@ -344,7 +344,7 @@ describe('createThreadRuntime - SSE and hydration', () => {
 				children: [
 					{
 						agentId: 'bg-task',
-						role: 'workflow-builder',
+						role: 'research',
 						status: 'active',
 						textContent: '',
 						reasoning: '',
@@ -1062,14 +1062,14 @@ describe('createThreadRuntime - session always-allow', () => {
 		expect(mockPostConfirmation).not.toHaveBeenCalled();
 	});
 
-	it('distinguishes submit-workflow create vs update grants by workflowId presence', async () => {
+	it('distinguishes build-workflow create vs update grants by workflowId presence', async () => {
 		const runtime = registry.getOrCreateRuntime(activeThreadId);
-		runtime.addAlwaysAllowKey('submit-workflow', {});
+		runtime.addAlwaysAllowKey('build-workflow', {});
 
 		pushPendingApproval(runtime, {
 			messageId: 'msg-create',
 			requestId: 'req-create',
-			toolName: 'submit-workflow',
+			toolName: 'build-workflow',
 			args: {},
 		});
 		await vi.waitFor(() => {
@@ -1079,7 +1079,7 @@ describe('createThreadRuntime - session always-allow', () => {
 		pushPendingApproval(runtime, {
 			messageId: 'msg-update',
 			requestId: 'req-update',
-			toolName: 'submit-workflow',
+			toolName: 'build-workflow',
 			args: { workflowId: 'wf-1' },
 		});
 		await new Promise((resolve) => setTimeout(resolve, 10));

@@ -11,6 +11,10 @@ const mockedReaddir = jest.mocked(readdirSync);
 const mockedReadFile = jest.mocked(readFileSync);
 
 const FAKE_FILES = [
+	'builder-http-bearer-auth.json',
+	'builder-schedule-to-email.json',
+	'builder-switch-fallback-routing.json',
+	'builder-webhook-to-slack.json',
 	'contact-form-automation.json',
 	'cross-team-linear-report.json',
 	'daily-slack-summary.json',
@@ -43,6 +47,10 @@ function slugs(filter?: string, exclude?: string): string[] {
 describe('loadWorkflowTestCasesWithFiles', () => {
 	it('returns every .json slug from workflows/ when no filter or exclude is given', () => {
 		expect(slugs()).toEqual([
+			'builder-http-bearer-auth',
+			'builder-schedule-to-email',
+			'builder-switch-fallback-routing',
+			'builder-webhook-to-slack',
 			'contact-form-automation',
 			'cross-team-linear-report',
 			'daily-slack-summary',
@@ -95,6 +103,10 @@ describe('loadWorkflowTestCasesWithFiles', () => {
 	describe('--exclude', () => {
 		it('removes any slug matching a single token', () => {
 			expect(slugs(undefined, 'weather')).toEqual([
+				'builder-http-bearer-auth',
+				'builder-schedule-to-email',
+				'builder-switch-fallback-routing',
+				'builder-webhook-to-slack',
 				'contact-form-automation',
 				'cross-team-linear-report',
 				'daily-slack-summary',
@@ -105,6 +117,10 @@ describe('loadWorkflowTestCasesWithFiles', () => {
 
 		it('treats a comma-separated list as OR (any match excludes)', () => {
 			expect(slugs(undefined, 'weather,form-to-hubspot')).toEqual([
+				'builder-http-bearer-auth',
+				'builder-schedule-to-email',
+				'builder-switch-fallback-routing',
+				'builder-webhook-to-slack',
 				'contact-form-automation',
 				'cross-team-linear-report',
 				'daily-slack-summary',

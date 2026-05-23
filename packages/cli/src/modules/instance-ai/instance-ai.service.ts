@@ -57,7 +57,6 @@ import {
 	submitLangsmithUserFeedback,
 	resumeAgentRun,
 	RunStateRegistry,
-	startBuildWorkflowAgentTask,
 	startDetachedDelegateTask,
 	startResearchAgentTask,
 	streamAgentRun,
@@ -430,8 +429,17 @@ interface MessageTraceFinalization {
 type OrchestratorResumeReason =
 	| 'approval'
 	| 'background_task_completed'
+	| 'planned_build'
 	| 'planned_checkpoint'
 	| 'replan';
+
+interface PlannedBuildFollowUp {
+	taskId: string;
+	workItemId: string;
+	title: string;
+	spec: string;
+	workflowId?: string;
+}
 
 /** Collapse the frontend's typed confirmation union into the flat payload
  *  consumed by native tool resume schemas and sub-agent HITL. Only the fields
@@ -1635,7 +1643,7 @@ export class InstanceAiService {
 		timeoutAt: number;
 	}> {
 		const messageId = `msg_${nanoid()}`;
-		const messageText = 'I started a background workflow-builder task.';
+		const messageText = 'I started a background research task.';
 		const { runId, messageGroupId } = this.runState.startRun({ threadId, user });
 		if (!messageGroupId) {
 			throw new UnexpectedError('Failed to create message group for timeout simulation');
@@ -1663,11 +1671,11 @@ export class InstanceAiService {
 			agentId,
 			payload: {
 				parentId: ORCHESTRATOR_AGENT_ID,
-				role: 'workflow-builder',
+				role: 'researcher',
 				tools: [],
 				taskId,
-				kind: 'builder',
-				title: 'Building workflow',
+				kind: 'researcher',
+				title: 'Researching',
 				subtitle: 'Timeout simulation',
 				goal: 'Simulate a stuck background task timeout',
 			},
@@ -1692,7 +1700,7 @@ export class InstanceAiService {
 			taskId,
 			threadId,
 			runId,
-			role: 'workflow-builder',
+			role: 'research',
 			agentId,
 			messageGroupId,
 			run: async (signal) =>
@@ -2030,9 +2038,14 @@ export class InstanceAiService {
 	}
 
 	private buildPlannedTaskFollowUpMessage(
-		type: 'synthesize' | 'replan' | 'checkpoint',
+		type: 'synthesize' | 'replan' | 'checkpoint' | 'build-workflow',
 		graph: PlannedTaskGraph,
-		options: { failedTask?: PlannedTaskRecord; checkpoint?: PlannedTaskRecord } = {},
+		options: {
+			failedTask?: PlannedTaskRecord;
+			checkpoint?: PlannedTaskRecord;
+			buildTask?: PlannedTaskRecord;
+			workItemId?: string;
+		} = {},
 	): string {
 		const payload: Record<string, unknown> = {
 			tasks: graph.tasks.map((task) => ({
@@ -2072,6 +2085,17 @@ export class InstanceAiService {
 				title: options.checkpoint.title,
 				instructions: options.checkpoint.spec,
 				dependsOn: depOutcomes,
+			};
+		}
+
+		if (options.buildTask) {
+			payload.buildTask = {
+				id: options.buildTask.id,
+				title: options.buildTask.title,
+				kind: options.buildTask.kind,
+				spec: options.buildTask.spec,
+				workflowId: options.buildTask.workflowId,
+				workItemId: options.workItemId,
 			};
 		}
 
@@ -2732,7 +2756,7 @@ export class InstanceAiService {
 		graph?: PlannedTaskGraph,
 	): Promise<void> {
 		// Plan approval authorizes the task-family's non-destructive tools,
-		// so the sub-agent can execute without a redundant second confirmation.
+		// so detached agents can execute without a redundant second confirmation.
 		const taskContext = this.createPlannedTaskContext(task.kind, context);
 		const conversationContext = buildPlannedTaskConversationContext(task, graph);
 
@@ -2740,13 +2764,10 @@ export class InstanceAiService {
 
 		switch (task.kind) {
 			case 'build-workflow':
-				started = await startBuildWorkflowAgentTask(taskContext, {
-					task: task.spec,
-					workflowId: task.workflowId,
-					plannedTaskId: task.id,
-					conversationContext,
+				await context.plannedTaskService?.markFailed(context.threadId, task.id, {
+					error: 'Workflow build tasks must run through the orchestrator follow-up path.',
 				});
-				break;
+				return;
 			case 'research':
 				started = await startResearchAgentTask(taskContext, {
 					goal: task.title,
@@ -2881,6 +2902,7 @@ export class InstanceAiService {
 		messageGroupId?: string,
 		isReplanFollowUp: boolean = false,
 		checkpoint?: { isCheckpointFollowUp: true; checkpointTaskId: string },
+		plannedBuild?: PlannedBuildFollowUp,
 	): Promise<string> {
 		if (this.runState.hasLiveRun(threadId)) {
 			this.logger.warn('Skipping internal follow-up: active run exists', { threadId });
@@ -2902,7 +2924,9 @@ export class InstanceAiService {
 			? 'planned_checkpoint'
 			: isReplanFollowUp
 				? 'replan'
-				: 'background_task_completed';
+				: plannedBuild
+					? 'planned_build'
+					: 'background_task_completed';
 
 		void this.executeRun(
 			user,
@@ -2916,6 +2940,7 @@ export class InstanceAiService {
 			isReplanFollowUp,
 			checkpoint,
 			resumeReason,
+			plannedBuild,
 		);
 
 		return runId;
@@ -2995,6 +3020,51 @@ export class InstanceAiService {
 			return;
 		}
 
+		if (action.type === 'orchestrate-build-workflow') {
+			if (this.runState.hasLiveRun(threadId)) {
+				return;
+			}
+
+			const buildTask = action.tasks[0];
+			const workItemId = `wi_${nanoid(8)}`;
+			await plannedTaskService.markRunning(threadId, buildTask.id, {
+				agentId: ORCHESTRATOR_AGENT_ID,
+			});
+			const graphAfterMark = (await plannedTaskService.getGraph(threadId)) ?? action.graph;
+			await this.syncPlannedTasksToUi(threadId, graphAfterMark);
+			const buildTaskRecord = graphAfterMark.tasks.find((t) => t.id === buildTask.id) ?? buildTask;
+
+			const startedRunId = await this.startInternalFollowUpRun(
+				activeUser,
+				threadId,
+				this.buildPlannedTaskFollowUpMessage('build-workflow', graphAfterMark, {
+					buildTask: buildTaskRecord,
+					workItemId,
+				}),
+				action.graph.messageGroupId,
+				false,
+				undefined,
+				{
+					taskId: buildTask.id,
+					workItemId,
+					title: buildTask.title,
+					spec: buildTask.spec,
+					...(buildTask.workflowId ? { workflowId: buildTask.workflowId } : {}),
+				},
+			);
+
+			if (!startedRunId) {
+				this.logger.warn('Workflow build follow-up run did not start — marking task failed', {
+					threadId,
+					plannedTaskId: buildTask.id,
+				});
+				await plannedTaskService.markFailed(threadId, buildTask.id, {
+					error: 'Workflow build follow-up run did not start',
+				});
+			}
+			return;
+		}
+
 		if (action.type === 'orchestrate-checkpoint') {
 			// Defer if a run is already active or suspended. The currently-live
 			// run's post-finally reschedule hook will pick this checkpoint up.
@@ -3050,7 +3120,7 @@ export class InstanceAiService {
 			action.graph.planRunId,
 			createInertAbortSignal(),
 			action.graph.messageGroupId,
-			// Route planned-task workflow runs (build agent, checkpoint verifications)
+			// Route planned-task workflow runs (workflow builds, checkpoint verifications)
 			// to the user's iframe session so live execution push events reach the
 			// frontend, matching the orchestrator main-run path.
 			this.threadPushRef.get(threadId),
@@ -3076,6 +3146,7 @@ export class InstanceAiService {
 		isReplanFollowUp: boolean = false,
 		checkpoint?: { isCheckpointFollowUp: true; checkpointTaskId: string },
 		resumeReason?: OrchestratorResumeReason,
+		plannedBuild?: PlannedBuildFollowUp,
 	): Promise<void> {
 		const signal = abortController.signal;
 		let tracing: InstanceAiTraceContext | undefined;
@@ -3148,6 +3219,27 @@ export class InstanceAiService {
 					threadId,
 					checkpoint.checkpointTaskId,
 				);
+			}
+
+			if (plannedBuild) {
+				context.permissions = {
+					...context.permissions,
+					...(PLANNED_TASK_PERMISSION_OVERRIDES['build-workflow'] ?? {}),
+				} as typeof context.permissions;
+				if (orchestrationContext.plannedTaskService) {
+					context.plannedBuildTask = {
+						threadId,
+						taskId: plannedBuild.taskId,
+						workItemId: plannedBuild.workItemId,
+						title: plannedBuild.title,
+						spec: plannedBuild.spec,
+						...(plannedBuild.workflowId ? { workflowId: plannedBuild.workflowId } : {}),
+						plannedTaskService: orchestrationContext.plannedTaskService,
+						...(orchestrationContext.workflowTaskService
+							? { workflowTaskService: orchestrationContext.workflowTaskService }
+							: {}),
+					};
+				}
 			}
 
 			// Thread attachments into the domain context so parse-file can access them
@@ -3683,7 +3775,7 @@ export class InstanceAiService {
 			}
 		} finally {
 			this.runState.clearActiveRun(threadId);
-			// Note: don't delete threadPushRef here. Planned tasks (build agent,
+			// Note: don't delete threadPushRef here. Planned tasks (workflow builds,
 			// checkpoint verifications) dispatch later in this same finally and
 			// later still in the post-run scheduler — they need the pushRef to
 			// route execution events to the user's iframe session. The next
@@ -3710,6 +3802,8 @@ export class InstanceAiService {
 			if (!this.runState.hasSuspendedRun(threadId)) {
 				if (checkpoint?.isCheckpointFollowUp) {
 					await this.finalizeCheckpointFollowUp(user, threadId, checkpoint.checkpointTaskId);
+				} else if (plannedBuild) {
+					await this.finalizePlannedBuildFollowUp(user, threadId, plannedBuild.taskId);
 				} else {
 					await this.schedulePlannedTasks(user, threadId);
 				}
@@ -3896,6 +3990,39 @@ export class InstanceAiService {
 			this.logger.error('Checkpoint finalization failed', {
 				threadId,
 				checkpointTaskId,
+				error: error instanceof Error ? error.message : String(error),
+			});
+		}
+
+		await this.schedulePlannedTasks(user, threadId);
+	}
+
+	private async finalizePlannedBuildFollowUp(
+		user: User,
+		threadId: string,
+		buildTaskId: string,
+	): Promise<void> {
+		try {
+			const { plannedTaskService } = await this.createPlannedTaskState();
+			const graph = await plannedTaskService.getGraph(threadId);
+			const task = graph?.tasks.find((t) => t.id === buildTaskId);
+			if (task && task.status === 'running') {
+				this.logger.warn('Workflow build follow-up ended without a successful build', {
+					threadId,
+					buildTaskId,
+				});
+				await plannedTaskService.markFailed(threadId, buildTaskId, {
+					error: 'Workflow build follow-up ended without a successful build',
+				});
+				const nextGraph = await plannedTaskService.getGraph(threadId);
+				if (nextGraph) {
+					await this.syncPlannedTasksToUi(threadId, nextGraph);
+				}
+			}
+		} catch (error) {
+			this.logger.error('Workflow build follow-up finalization failed', {
+				threadId,
+				buildTaskId,
 				error: error instanceof Error ? error.message : String(error),
 			});
 		}
@@ -4471,7 +4598,7 @@ export class InstanceAiService {
 				// Auto-follow-up: when the last background task finishes and no
 				// orchestrator run is active, resume the orchestrator so it can
 				// synthesize results for the user. Planned tasks handle this via
-				// schedulePlannedTasks(); this covers direct build-workflow-with-agent calls.
+				// schedulePlannedTasks(); this covers direct delegate/research calls.
 				if (task.plannedTaskId) return;
 
 				// Parent-tagged children (patch-builder etc. spawned inside a

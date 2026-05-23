@@ -255,8 +255,8 @@ function createBackgroundTaskFollowUpService({
 		taskId: 'task-1',
 		threadId: 'thread-a',
 		runId: 'run-1',
-		role: 'workflow-builder',
-		agentId: 'agent-builder',
+		role: 'research',
+		agentId: 'agent-research',
 		status: 'completed',
 		result: 'done',
 		startedAt: 0,
@@ -746,9 +746,9 @@ function makeTerminalOutcome(overrides: Partial<TerminalOutcome> = {}): Terminal
 		messageGroupId: 'group-1',
 		correlationId: 'message-1',
 		taskId: 'task-1',
-		agentId: 'agent-builder',
+		agentId: 'agent-research',
 		status: 'completed',
-		userFacingMessage: 'The background workflow-builder task finished.',
+		userFacingMessage: 'The background research task finished.',
 		createdAt: '2026-05-01T00:00:00.000Z',
 		...overrides,
 	};
@@ -1129,8 +1129,8 @@ describe('InstanceAiService — background task auto-follow-up', () => {
 			{
 				taskId: 'task-1',
 				threadId: 'thread-a',
-				agentId: 'agent-builder',
-				role: 'workflow-builder',
+				agentId: 'agent-research',
+				role: 'research',
 				run: async () => 'done',
 			},
 			{},
@@ -1138,7 +1138,7 @@ describe('InstanceAiService — background task auto-follow-up', () => {
 		);
 		await getSpawnOptions().onSettled?.(task);
 
-		expect(result).toEqual({ status: 'started', taskId: 'task-1', agentId: 'agent-builder' });
+		expect(result).toEqual({ status: 'started', taskId: 'task-1', agentId: 'agent-research' });
 		expect(service.startInternalFollowUpRun).toHaveBeenCalledWith(
 			fakeUser,
 			'thread-a',
@@ -1157,8 +1157,8 @@ describe('InstanceAiService — background task auto-follow-up', () => {
 			{
 				taskId: 'task-1',
 				threadId: 'thread-a',
-				agentId: 'agent-builder',
-				role: 'workflow-builder',
+				agentId: 'agent-research',
+				role: 'research',
 				run: async () => 'done',
 			},
 			{},

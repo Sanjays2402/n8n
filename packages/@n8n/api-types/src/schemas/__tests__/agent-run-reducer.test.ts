@@ -332,9 +332,9 @@ describe('agent-run-reducer', () => {
 			});
 		});
 
-		it('applies rich render hints to background agent tools', () => {
+		it('applies rich render hints to special tools', () => {
 			const state = stateWithRun('run-1', 'root');
-			reduceEvent(state, makeToolCall('run-1', 'root', 'tc-builder', 'build-workflow-with-agent'));
+			reduceEvent(state, makeToolCall('run-1', 'root', 'tc-builder', 'build-workflow'));
 			reduceEvent(state, makeToolCall('run-1', 'root', 'tc-research', 'research-with-agent'));
 			reduceEvent(state, makeToolCall('run-1', 'root', 'tc-eval-setup', 'eval-setup-with-agent'));
 			reduceEvent(state, makeToolCall('run-1', 'root', 'tc-skill', 'load_skill'));
@@ -715,14 +715,8 @@ describe('agent-run-reducer', () => {
 	describe('multiple concurrent builders', () => {
 		it('tracks distinct agents with different metadata', () => {
 			const state = stateWithRun('run-1', 'root');
-			reduceEvent(
-				state,
-				makeAgentSpawned('run-1', 'builder-1', 'root', 'workflow-builder', ['build']),
-			);
-			reduceEvent(
-				state,
-				makeAgentSpawned('run-1', 'builder-2', 'root', 'workflow-builder', ['build']),
-			);
+			reduceEvent(state, makeAgentSpawned('run-1', 'builder-1', 'root', 'research', ['build']));
+			reduceEvent(state, makeAgentSpawned('run-1', 'builder-2', 'root', 'research', ['build']));
 
 			expect(state.childrenByAgentId['root']).toEqual(['builder-1', 'builder-2']);
 			expect(findAgent(state, 'builder-1')).toBeDefined();

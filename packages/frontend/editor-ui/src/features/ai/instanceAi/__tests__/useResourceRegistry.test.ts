@@ -159,7 +159,7 @@ describe('useResourceRegistry', () => {
 	});
 
 	describe('producedArtifacts — targetResource registration', () => {
-		test('registers a builder sub-agent targetResource as a produced workflow', async () => {
+		test('registers a workflow targetResource as a produced workflow', async () => {
 			const { messages, producedArtifacts } = setup();
 
 			messages.value = [
@@ -167,9 +167,9 @@ describe('useResourceRegistry', () => {
 					agentTree: makeAgentNode({
 						children: [
 							makeAgentNode({
-								agentId: 'agent-builder-1',
-								role: 'workflow-builder',
-								kind: 'builder',
+								agentId: 'agent-setup-1',
+								role: 'browser-credential-setup',
+								kind: 'browser-setup',
 								status: 'active',
 								targetResource: { type: 'workflow', id: 'wf-edit', name: 'Existing WF' },
 							}),
@@ -192,9 +192,9 @@ describe('useResourceRegistry', () => {
 					agentTree: makeAgentNode({
 						children: [
 							makeAgentNode({
-								agentId: 'agent-builder-1',
-								role: 'workflow-builder',
-								kind: 'builder',
+								agentId: 'agent-setup-1',
+								role: 'browser-credential-setup',
+								kind: 'browser-setup',
 								status: 'active',
 								targetResource: { type: 'workflow' },
 							}),
@@ -238,9 +238,9 @@ describe('useResourceRegistry', () => {
 					agentTree: makeAgentNode({
 						children: [
 							makeAgentNode({
-								agentId: 'agent-builder-1',
-								role: 'workflow-builder',
-								kind: 'builder',
+								agentId: 'agent-setup-1',
+								role: 'browser-credential-setup',
+								kind: 'browser-setup',
 								status: 'active',
 								targetResource: { type: 'workflow', id: 'wf-edit' },
 							}),
@@ -261,14 +261,14 @@ describe('useResourceRegistry', () => {
 					agentTree: makeAgentNode({
 						children: [
 							makeAgentNode({
-								agentId: 'agent-builder-1',
-								role: 'workflow-builder',
-								kind: 'builder',
+								agentId: 'agent-setup-1',
+								role: 'browser-credential-setup',
+								kind: 'browser-setup',
 								status: 'completed',
 								targetResource: { type: 'workflow', id: 'wf-edit' },
 								toolCalls: [
 									makeToolCall({
-										toolName: 'submit-workflow',
+										toolName: 'build-workflow',
 										result: { workflowId: 'wf-edit', workflowName: 'Renamed' },
 									}),
 								],
@@ -300,7 +300,7 @@ describe('useResourceRegistry', () => {
 							}),
 							makeToolCall({
 								toolCallId: 'tc-2',
-								toolName: 'submit-workflow',
+								toolName: 'build-workflow',
 								result: { workflowId: 'wf-1', workflowName: 'Renamed' },
 							}),
 						],

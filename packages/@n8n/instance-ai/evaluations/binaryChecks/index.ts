@@ -5,9 +5,8 @@
 // returns Feedback[] compatible with the existing harness.
 // ---------------------------------------------------------------------------
 
-import type { BinaryCheck, BinaryCheckContext } from './types';
+import type { BinaryCheck, BinaryCheckContext, Feedback } from './types';
 import type { WorkflowResponse } from '../clients/n8n-client';
-import type { Feedback } from '../subagent/types';
 import { DETERMINISTIC_CHECKS, LLM_CHECKS } from './checks/index';
 
 const EVALUATOR_NAME = 'binary-checks';

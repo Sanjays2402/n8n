@@ -819,7 +819,7 @@ describe('createInstanceAiTraceContext', () => {
 			name: 'ai.streamText.doStream',
 			attributes: {
 				'ai.operationId': 'ai.streamText.doStream',
-				'ai.telemetry.metadata.agent_role': 'workflow-builder',
+				'ai.telemetry.metadata.agent_role': 'research',
 			},
 		};
 
@@ -828,15 +828,15 @@ describe('createInstanceAiTraceContext', () => {
 			attributes: Record<string, unknown>;
 		};
 
-		expect(redacted.name).toBe('llm: workflow-builder');
-		expect(redacted.attributes['langsmith.trace.name']).toBe('llm: workflow-builder');
+		expect(redacted.name).toBe('llm: research');
+		expect(redacted.attributes['langsmith.trace.name']).toBe('llm: research');
 		expect(redacted.attributes['langsmith.span.kind']).toBe('llm');
 		expect(redacted.attributes['gen_ai.operation.name']).toBe('chat');
 		expect(redacted.attributes['ai_sdk.operation']).toBe('ai.streamText.doStream');
 		expect(redacted.attributes['ai.operationId']).toBeUndefined();
 		expect(redacted.attributes['instance_ai.canonical_name']).toBe('ai.streamText.doStream');
 		expect(redacted.attributes.display_kind).toBe('llm');
-		expect(redacted.attributes.display_group).toBe('workflow-builder');
+		expect(redacted.attributes.display_group).toBe('research');
 	});
 
 	it('normalizes AI SDK tool messages for LangSmith chat rendering', () => {
@@ -1141,17 +1141,17 @@ describe('createInstanceAiTraceContext', () => {
 			messageId: 'message-1',
 			runId: 'run-1',
 			userId: 'user-1',
-			agentId: 'agent-builder-1',
-			role: 'workflow-builder',
-			kind: 'builder',
-			taskId: 'build-1',
+			agentId: 'agent-research-1',
+			role: 'research',
+			kind: 'research',
+			taskId: 'research-1',
 			spawnedByTraceId: 'trace-parent-1',
 			spawnedBySpanId: 'span-parent-1',
 			spawnedByRunId: 'run-parent-1',
 			spawnedByAgentId: 'agent-001',
 			spawnedByAgentRole: 'orchestrator',
 			spawnedByToolCallId: 'toolu-1',
-			input: { task: 'Build a workflow' },
+			input: { task: 'Research workflow options' },
 			metadata: { n8n_version: '2.19.0' },
 		});
 
@@ -1159,16 +1159,16 @@ describe('createInstanceAiTraceContext', () => {
 		expect(tracing?.traceKind).toBe('background_subagent');
 		expect(tracing?.rootRun.id).not.toBe(tracing?.actorRun.id);
 		expect(tracing?.rootRun.parentRunId).toBeUndefined();
-		expect(tracing?.rootRun.name).toBe('background task: workflow-builder');
-		expect(tracing?.actorRun.name).toBe('agent: workflow-builder');
+		expect(tracing?.rootRun.name).toBe('background task: research');
+		expect(tracing?.actorRun.name).toBe('agent: research');
 		expect(tracing?.actorRun.parentRunId).toBe(tracing?.rootRun.id);
 		expect(tracing?.rootRun.metadata).toEqual(
 			expect.objectContaining({
 				thread_id: 'thread-1',
 				message_group_id: 'group-1',
-				task_id: 'build-1',
-				task_kind: 'builder',
-				agent_id: 'agent-builder-1',
+				task_id: 'research-1',
+				task_kind: 'research',
+				agent_id: 'agent-research-1',
 				n8n_version: '2.19.0',
 				trace_kind: 'background_subagent',
 				execution_mode: 'background_subagent',
@@ -1185,13 +1185,13 @@ describe('createInstanceAiTraceContext', () => {
 		expect(typeof tracing?.rootRun.metadata?.workflow_sdk_version).toBe('string');
 		expect(tracing?.actorRun.metadata).toEqual(
 			expect.objectContaining({
-				'instance_ai.canonical_name': 'instance-ai.agent.workflow-builder',
+				'instance_ai.canonical_name': 'instance-ai.agent.research',
 			}),
 		);
 
 		const telemetryOrBuilder = tracing!.getTelemetry!({
-			agentRole: 'workflow-builder',
-			functionId: 'instance-ai.subagent.workflow-builder',
+			agentRole: 'research',
+			functionId: 'instance-ai.subagent.research',
 			executionMode: 'background_subagent',
 		});
 		const telemetry =
@@ -1209,7 +1209,7 @@ describe('createInstanceAiTraceContext', () => {
 			runId: 'run-1',
 			userId: 'user-1',
 			agentId: 'agent-builder-1',
-			role: 'workflow-builder',
+			role: 'research',
 			kind: 'builder',
 			taskId: 'build-1',
 			input: { task: 'Build a workflow' },
@@ -1235,12 +1235,6 @@ describe('createInstanceAiTraceContext', () => {
 							},
 						} as never,
 					],
-					[
-						'submit-workflow',
-						{
-							description: 'Submit a workflow to n8n.',
-						} as never,
-					],
 				]),
 				runtimeTools: createToolRegistry([
 					[
@@ -1260,8 +1254,8 @@ describe('createInstanceAiTraceContext', () => {
 
 		expect(actorInputs.task).toBe('Build a workflow');
 		expect(actorInputs.model).toBe('anthropic/claude-sonnet-4-6');
-		expect(actorInputs.assigned_tool_count).toBe(2);
-		expect(actorInputs.assigned_tool_names).toEqual(['build-workflow', 'submit-workflow']);
+		expect(actorInputs.assigned_tool_count).toBe(1);
+		expect(actorInputs.assigned_tool_names).toEqual(['build-workflow']);
 		expect(actorInputs.assigned_tool_schema_hash).toEqual(expect.any(String));
 		expect(actorInputs.runtime_tool_count).toBe(1);
 		expect(actorInputs.runtime_tool_names).toEqual(['workspace_read_file']);
@@ -1278,7 +1272,7 @@ describe('createInstanceAiTraceContext', () => {
 		const spanInputs = jsonParse<Record<string, unknown>>(
 			actorSpan?.attributes['gen_ai.prompt'] as string,
 		);
-		expect(spanInputs.assigned_tool_names).toEqual(['build-workflow', 'submit-workflow']);
+		expect(spanInputs.assigned_tool_names).toEqual(['build-workflow']);
 		expect(spanInputs.runtime_tool_names).toEqual(['workspace_read_file']);
 		expect(spanInputs.loaded_tool_manifest).toBeUndefined();
 		expect(spanInputs.loaded_tools).toBeUndefined();
@@ -1295,7 +1289,7 @@ describe('createInstanceAiTraceContext', () => {
 			runId: 'run-1',
 			userId: 'user-1',
 			agentId: 'agent-builder-1',
-			role: 'workflow-builder',
+			role: 'research',
 			kind: 'builder',
 			taskId: 'build-1',
 			input: { task: 'Build a workflow' },
@@ -1488,7 +1482,7 @@ describe('createInstanceAiTraceContext', () => {
 
 		const wrappedTools = tracing.wrapTools(
 			createToolRegistry([['approval-tool', interruptibleTool]]),
-			{ agentRole: 'workflow-builder' },
+			{ agentRole: 'research' },
 		);
 		const wrappedTool = wrappedTools.get('approval-tool');
 		if (!isExecutableTool(wrappedTool)) {
@@ -1497,7 +1491,7 @@ describe('createInstanceAiTraceContext', () => {
 
 		const result = await executeTool(
 			wrappedTool,
-			{ operation: 'write-file' },
+			{ operation: 'workspace-write' },
 			{
 				resumeData: undefined,
 				suspend: async (payload: unknown): Promise<never> =>
@@ -1510,9 +1504,9 @@ describe('createInstanceAiTraceContext', () => {
 		expect(suspend).toEqual({
 			kind: 'tool-suspend',
 			stepId: 1,
-			agentRole: 'workflow-builder',
+			agentRole: 'research',
 			toolName: 'approval-tool',
-			input: { operation: 'write-file' },
+			input: { operation: 'workspace-write' },
 			output: {},
 			suspendPayload,
 		});
@@ -1606,10 +1600,10 @@ describe('createInstanceAiTraceContext', () => {
 		expect(tracing).toBeDefined();
 
 		const subAgentRun = await tracing!.startChildRun(tracing!.orchestratorRun, {
-			name: 'agent: workflow-builder',
-			canonicalName: 'instance-ai.subagent.workflow-builder.stream',
+			name: 'agent: research',
+			canonicalName: 'instance-ai.subagent.research.stream',
 			tags: ['sub-agent'],
-			metadata: { agent_role: 'workflow-builder' },
+			metadata: { agent_role: 'research' },
 			inputs: { task: 'Build a workflow' },
 		});
 
@@ -1932,7 +1926,7 @@ describe('createInstanceAiTraceContext', () => {
 					} as never,
 				],
 			]),
-			{ agentRole: 'workflow-builder' },
+			{ agentRole: 'research' },
 		);
 		const workspaceWriteFile = wrappedTools.get('workspace_write_file');
 		if (!isExecutableTool(workspaceWriteFile)) {
@@ -1977,13 +1971,13 @@ describe('createInstanceAiTraceContext', () => {
 						'ai.operationId': 'ai.toolCall',
 						'langsmith.span.kind': 'tool',
 						'ai.toolCall.name': 'workspace_write_file',
-						'ai.toolCall.id': 'toolu-write-file',
+						'ai.toolCall.id': 'toolu-workspace-write',
 					},
 				},
 				async (span) => {
 					await workspaceWriteFile.handler(
 						{ path: 'workflow.json', content: '{}' },
-						{ toolCallId: 'toolu-write-file' },
+						{ toolCallId: 'toolu-workspace-write' },
 					);
 					span.end();
 				},
@@ -2011,7 +2005,7 @@ describe('createInstanceAiTraceContext', () => {
 		expect(orchestratorSpan?.parentSpanId).toBe(rootSpan?.id);
 		expect(providerSpan?.parentSpanId).toBe(orchestratorSpan?.id);
 		expect(localToolSpan?.parentSpanId).toBe(orchestratorSpan?.id);
-		expect(localToolSpan?.attributes['ai.toolCall.id']).toBe('toolu-write-file');
+		expect(localToolSpan?.attributes['ai.toolCall.id']).toBe('toolu-workspace-write');
 		expect(localToolSpan?.attributes['ai.toolCall.name']).toBe('workspace_write_file');
 		expect(spans.some((span) => span.name.startsWith('instance-ai.tool.'))).toBe(false);
 	});

@@ -43,7 +43,7 @@ for approval before execution starts.
 - On denial: returns feedback for the LLM to revise the plan
 
 **Task kinds** map to executors:
-- `build-workflow` → workflow builder agent (sandbox or tool mode)
+- `build-workflow` → main orchestrator follow-up with the `workflow-builder` skill
 - `research` → research agent (web-search + fetch-url)
 - `delegate` → custom sub-agent with orchestrator-specified tool subset
 - `checkpoint` → orchestrator-executed verification step
@@ -89,33 +89,23 @@ tracking during synchronous work.
 
 **Behavior**: Saves to storage, publishes `tasks-update` event for live UI refresh.
 
-### `build-workflow-with-agent`
+### `build-workflow`
 
-Spawn a specialized builder sub-agent as a background task. Returns immediately —
-the builder runs detached from the orchestrator.
+Build or update a workflow from TypeScript SDK code in the main orchestrator
+after loading the `workflow-builder` skill.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `task` | string | yes | What to build and any context |
+| `code` | string | no | Full TypeScript workflow code for create/update |
+| `patches` | array | no | Targeted string replacements for an existing workflow |
 | `workflowId` | string | no | Existing workflow ID to modify |
-| `conversationContext` | string | no | What user already knows |
+| `name` | string | no | Workflow name, required for new workflows if code omits it |
 
-**Returns**: `{ result: string }` — contains task ID for background tracking.
+**Returns**: `{ success: boolean, workflowId?: string, errors?: string[], warnings?: string[] }`
 
-**Two modes** (selected based on sandbox availability):
-
-- **Sandbox mode** (`N8N_INSTANCE_AI_SANDBOX_ENABLED=true`): agent writes TypeScript
-  to `~/workspace/src/workflow.ts`, runs `tsc` for validation, and calls `submit-workflow`.
-  Gets filesystem and `execute_command` tools from the workspace.
-- **Tool mode** (fallback): agent uses string-based `build-workflow` tool with
-  `get-node-type-definition`, `get-workflow-as-code`, `search-nodes`.
-
-Both modes: max 30 steps, publishes events to the event bus, non-blocking.
-
-**Sandbox-only tools** (not in `createAllTools`, only available to the builder):
-- `submit-workflow` — reads TypeScript from sandbox, parses/validates, resolves credentials, saves
-- `materialize-node-type` — fetches `.d.ts` definitions and writes to sandbox for `tsc`
-- `write-sandbox-file` — writes files to sandbox workspace (path-traversal protected)
+**Behavior**: validates SDK code, resolves credentials, preserves webhook IDs,
+gates create/update with HITL, saves the workflow, and records planned-task
+outcomes when called from an approved `build-workflow` task.
 
 ### `cancel-background-task` *(conditional)*
 
@@ -244,8 +234,8 @@ Get full workflow definition including nodes, connections, and settings.
 
 ### `get-workflow-as-code`
 
-Get a workflow as TypeScript SDK code. Used by the builder agent to load an
-existing workflow for modification.
+Get a workflow as TypeScript SDK code. Used by the `workflow-builder` skill to
+load an existing workflow for modification.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
@@ -706,16 +696,15 @@ everything; sub-agents receive only what they need.
 | Tool Category | Orchestrator | Sub-Agents (delegate) | Background Agents |
 |---------------|:---:|:---:|:---:|
 | Orchestration tools (`plan`, `delegate`, etc.) | ✅ | ❌ | ❌ |
-| Workflow tools | ✅ | ✅ (via delegate) | ✅ (builder) |
+| Workflow tools | ✅ | ✅ (via delegate) | ❌ |
 | Execution tools | ✅ (direct use) | ✅ (via delegate) | ❌ |
-| Credential tools | ✅ | ✅ (via delegate) | ✅ (builder — setup only) |
-| Node discovery tools | ✅ | ✅ (via delegate) | ✅ (builder) |
+| Credential tools | ✅ | ✅ (via delegate) | ❌ |
+| Node discovery tools | ✅ | ✅ (via delegate) | ❌ |
 | Data table tools | ✅ (direct, via `data-table-manager` skill) | ✅ (via delegate) | ❌ |
 | Workspace tools | ✅ | ✅ (via delegate) | ❌ |
 | Filesystem tools | ✅ (conditional) | ✅ (via delegate) | ❌ |
 | Web research tools | ✅ | ✅ (via delegate) | ✅ (research agent) |
-| Template / best practices | ✅ | ✅ (via delegate) | ✅ (builder) |
-| Sandbox tools (`submit-workflow`, `materialize-node-type`, `write-sandbox-file`) | ❌ | ❌ | ✅ (builder only) |
+| Template / best practices | ✅ | ✅ (via delegate) | ❌ |
 | MCP tools | ✅ | ❌ | ❌ |
 | Browser MCP tools | ❌ | ❌ | ✅ (browser-credential-setup only) |
 

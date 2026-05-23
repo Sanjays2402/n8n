@@ -1,16 +1,18 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { buildBrowserAgentPrompt } from '../browser-credential-setup.prompt';
-import {
-	BUILDER_AGENT_PROMPT,
-	createSandboxBuilderAgentPrompt,
-} from '../build-workflow-agent.prompt';
 import { PLANNER_AGENT_PROMPT } from '../plan-agent-prompt';
 
+const WORKFLOW_BUILDER_SKILL = readFileSync(
+	join(__dirname, '..', '..', '..', '..', 'skills', 'workflow-builder', 'SKILL.md'),
+	'utf8',
+);
+
 describe('credential guardrail prompts', () => {
-	it('does not frame API keys as acceptable ask-user inputs in builder prompts', () => {
-		expect(BUILDER_AGENT_PROMPT).not.toContain('a chat ID, API key, external resource name');
-		expect(createSandboxBuilderAgentPrompt('/tmp/workspace')).not.toContain(
-			'a chat ID, API key, external resource name',
-		);
+	it('does not frame API keys as acceptable ask-user inputs in the workflow-builder skill', () => {
+		expect(WORKFLOW_BUILDER_SKILL).not.toContain('a chat ID, API key, external resource name');
+		expect(WORKFLOW_BUILDER_SKILL).toContain('Never invent credential IDs, API tokens');
 	});
 
 	it('directs browser credential setup toward private credential entry', () => {
@@ -23,12 +25,10 @@ describe('credential guardrail prompts', () => {
 	});
 
 	it('keeps inbound trigger authentication disabled unless explicitly requested', () => {
-		const prompt = createSandboxBuilderAgentPrompt('/tmp/workspace');
-
-		expect(prompt).toContain(
+		expect(WORKFLOW_BUILDER_SKILL).toContain(
 			'The credential-selection guidance above applies to outbound service calls.',
 		);
-		expect(prompt).toContain(
+		expect(WORKFLOW_BUILDER_SKILL).toContain(
 			'keep authentication at its default `none` unless the user explicitly asks to authenticate inbound traffic',
 		);
 	});
@@ -64,72 +64,26 @@ describe('credential guardrail prompts', () => {
 	});
 
 	it('tells the builder to wrap ambiguous resource matches with placeholder()', () => {
-		// Both prompts inline PLACEHOLDERS_RULE, which now covers the multi-match case.
-		const sharedRule = '**Resource IDs with more than one candidate**';
-		expect(BUILDER_AGENT_PROMPT).toContain(sharedRule);
-		expect(createSandboxBuilderAgentPrompt('/tmp/workspace')).toContain(sharedRule);
-
-		// The sandbox builder additionally repeats the rule at resource-discovery time,
-		// so it cannot be missed in the step-by-step process.
-		expect(createSandboxBuilderAgentPrompt('/tmp/workspace')).toContain(
-			"If `explore-resources` returns more than one match and the user did not name a specific one, use `placeholder('Select <resource>')`",
+		expect(WORKFLOW_BUILDER_SKILL).toContain('Resource IDs with more than one candidate');
+		expect(WORKFLOW_BUILDER_SKILL).toContain(
+			"If `explore-resources` returns more than one match and the user did not name a specific one, use `placeholder('Select <resource>')`.",
 		);
 	});
 
-	it('keeps builder prompts grounded in the inline setup card', () => {
-		for (const prompt of [
-			BUILDER_AGENT_PROMPT,
-			createSandboxBuilderAgentPrompt('/tmp/workspace'),
-		]) {
-			expect(prompt).toContain('inline setup card in the AI Assistant panel');
-			expect(prompt).not.toMatch(/setup wizard/i);
-		}
+	it('keeps builder guidance grounded in the inline setup card', () => {
+		expect(WORKFLOW_BUILDER_SKILL).toContain('inline setup card in the AI Assistant panel');
+		expect(WORKFLOW_BUILDER_SKILL).not.toMatch(/setup wizard/i);
 	});
 
-	it('does not inline bulky static node guides in builder prompts', () => {
-		for (const prompt of [
-			BUILDER_AGENT_PROMPT,
-			createSandboxBuilderAgentPrompt('/tmp/workspace'),
-		]) {
-			expect(prompt).toContain('## Node Configuration Safety Rules');
-			expect(prompt).not.toContain('nodes(action="guide")');
-			expect(prompt).not.toContain('### Set Node Updates - Comprehensive Type Handling Guide');
-			expect(prompt).not.toContain('#### Complete Operator Reference');
-			expect(prompt).not.toContain('## IMPORTANT: ResourceLocator Parameter Handling');
-		}
-	});
-
-	it('does not instruct the sandbox builder about publishing when publish is not on its tool surface', () => {
-		const prompt = createSandboxBuilderAgentPrompt('/tmp/workspace');
-
-		expect(prompt).not.toContain('workflows(action="publish")');
-		expect(prompt).not.toContain('Do NOT publish');
-	});
-
-	it('points sandbox builders at the task-specific workflow and chunks paths', () => {
-		const prompt = createSandboxBuilderAgentPrompt('/tmp/workspace', {
-			mainWorkflowPath: '/tmp/workspace/builder-work-items/wi-one/src/workflow.ts',
-			sourceDir: '/tmp/workspace/builder-work-items/wi-one/src',
-			chunksDir: '/tmp/workspace/builder-work-items/wi-one/chunks',
-			tsconfigPath: '/tmp/workspace/builder-work-items/wi-one/tsconfig.json',
-		});
-
-		expect(prompt).toContain(
-			'Your active main workflow file is `/tmp/workspace/builder-work-items/wi-one/src/workflow.ts`',
+	it('does not inline bulky static node guides in the workflow-builder skill', () => {
+		expect(WORKFLOW_BUILDER_SKILL).toContain('Node Configuration Safety Rules');
+		expect(WORKFLOW_BUILDER_SKILL).not.toContain('nodes(action="guide")');
+		expect(WORKFLOW_BUILDER_SKILL).not.toContain(
+			'### Set Node Updates - Comprehensive Type Handling Guide',
 		);
-		expect(prompt).toContain(
-			'Use `/tmp/workspace/builder-work-items/wi-one/chunks/` for supporting chunk files',
+		expect(WORKFLOW_BUILDER_SKILL).not.toContain('#### Complete Operator Reference');
+		expect(WORKFLOW_BUILDER_SKILL).not.toContain(
+			'## IMPORTANT: ResourceLocator Parameter Handling',
 		);
-		expect(prompt).toContain(
-			'execute_command: cd /tmp/workspace && npx tsc --noEmit --project /tmp/workspace/builder-work-items/wi-one/tsconfig.json 2>&1',
-		);
-		expect(prompt).not.toContain('Write workflow code to `/tmp/workspace/src/workflow.ts`');
-	});
-
-	it('uses the provided workspace root for fallback tsc validation', () => {
-		const prompt = createSandboxBuilderAgentPrompt('/tmp/custom-workspace');
-
-		expect(prompt).toContain('execute_command: cd /tmp/custom-workspace && npx tsc --noEmit 2>&1');
-		expect(prompt).not.toContain('execute_command: cd ~/workspace && npx tsc --noEmit 2>&1');
 	});
 });

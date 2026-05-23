@@ -195,7 +195,11 @@ function isErroredToolCall(trace: ToolCallTrace): boolean {
 
 function countSubmitCalls(traces: ToolCallTrace[] | undefined): number {
 	if (!traces) return 0;
-	return traces.filter((t) => t.toolName === 'submit-workflow').length;
+	return traces.filter((t) => isWorkflowSaveTool(t.toolName)).length;
+}
+
+function isWorkflowSaveTool(toolName: string): boolean {
+	return toolName === 'build-workflow' || toolName === 'submit-workflow';
 }
 
 function countToolCallErrors(traces: ToolCallTrace[] | undefined): number {
@@ -374,7 +378,7 @@ function renderExample(record: ResultRecord, idPrefix: string): string {
 	const submitCalls = countSubmitCalls(record.toolCalls);
 	const toolErrors = countToolCallErrors(record.toolCalls);
 	const buildStatBits: string[] = [];
-	if (submitCalls > 0) buildStatBits.push(`submit ×${submitCalls}`);
+	if (submitCalls > 0) buildStatBits.push(`save ×${submitCalls}`);
 	if (toolErrors > 0) buildStatBits.push(`err ×${toolErrors}`);
 
 	const errorBlock = record.build.errorMessage
@@ -464,7 +468,7 @@ function renderRun(run: Run, index: number): string {
 			}
       ${
 				s.totals.avgSubmitCalls !== undefined
-					? `<span class="total"><strong>Submit calls:</strong> ${s.totals.submitCallsTotal ?? 0} total, ${s.totals.avgSubmitCalls.toFixed(2)} avg/build</span>`
+					? `<span class="total"><strong>Workflow saves:</strong> ${s.totals.submitCallsTotal ?? 0} total, ${s.totals.avgSubmitCalls.toFixed(2)} avg/build</span>`
 					: ''
 			}
     </div>

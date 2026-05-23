@@ -1,8 +1,8 @@
 /**
  * Sandbox Workspace Setup
  *
- * Handles first-time initialization of the sandbox workspace for the workflow
- * builder agent. Lazy and idempotent — checks for marker file before running.
+ * Handles first-time initialization of the sandbox workspace for runtime
+ * workspace-backed skills. Lazy and idempotent — checks for marker file before running.
  *
  * File I/O uses the workspace filesystem when available, with a sandbox command
  * fallback for providers that do not expose one.
@@ -488,7 +488,7 @@ export async function getWorkspaceRoot(workspace: SandboxWorkspace): Promise<str
  *
  * Used by `setupSandboxWorkspace` (local provider) and by the Daytona /
  * n8n-sandbox factory paths, which skip the full setup but still need the
- * curated reference material the builder agent greps against.
+ * curated reference material the agent can grep against.
  *
  * No-op when the loader returns an empty bundle (e.g. running against a
  * workspace where the manifest hasn't been fetched).
@@ -526,7 +526,7 @@ export async function writeCuratedExamples(
 }
 
 /**
- * Initialize the sandbox workspace for the workflow builder agent.
+ * Initialize the sandbox workspace for runtime workspace-backed skills.
  * Idempotent — skips if already initialized (checks marker file).
  *
  * Writes config files, workflow JSONs, and the node catalog into the workspace.

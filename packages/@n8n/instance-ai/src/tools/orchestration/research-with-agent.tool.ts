@@ -2,7 +2,7 @@
  * Research-with-Agent Orchestration Tool
  *
  * Spawns a background research sub-agent with web-search + fetch-url tools.
- * Same pattern as build-workflow-agent.tool.ts — returns immediately with a taskId.
+ * Returns immediately with a taskId; the detached worker streams separately.
  */
 
 import { Agent, Tool } from '@n8n/agents';

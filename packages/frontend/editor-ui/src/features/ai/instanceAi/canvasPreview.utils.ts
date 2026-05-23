@@ -13,12 +13,6 @@ export interface BuildResult {
 	toolCallId: string;
 }
 
-export interface BuilderTarget {
-	/** Unique per spawn — changes even when a new builder targets the same workflow. */
-	agentId: string;
-	workflowId: string;
-}
-
 export interface WorkflowSetupResult {
 	workflowId: string;
 	/** Unique per operation — changes even when the same workflow is set up again. */
@@ -33,7 +27,7 @@ export interface DataTableResult {
 
 /**
  * Walks an agent tree depth-first (most recent last) and returns the workflowId
- * and toolCallId from the latest successful build-workflow / submit-workflow tool result.
+ * and toolCallId from the latest successful build-workflow tool result.
  */
 export function getLatestBuildResult(node: InstanceAiAgentNode): BuildResult | undefined {
 	for (let i = node.children.length - 1; i >= 0; i--) {
@@ -43,7 +37,7 @@ export function getLatestBuildResult(node: InstanceAiAgentNode): BuildResult | u
 	for (let i = node.toolCalls.length - 1; i >= 0; i--) {
 		const tc = node.toolCalls[i];
 		if (
-			(tc.toolName === 'build-workflow' || tc.toolName === 'submit-workflow') &&
+			tc.toolName === 'build-workflow' &&
 			!tc.isLoading &&
 			tc.result &&
 			typeof tc.result === 'object'
@@ -52,31 +46,6 @@ export function getLatestBuildResult(node: InstanceAiAgentNode): BuildResult | u
 			if (result.success === true && typeof result.workflowId === 'string') {
 				return { workflowId: result.workflowId, toolCallId: tc.toolCallId };
 			}
-		}
-	}
-	return undefined;
-}
-
-/**
- * Walks an agent tree depth-first (most recent last) and returns the agentId
- * and workflowId of the latest workflow-builder sub-agent that was spawned
- * with a concrete `targetResource.id` — i.e. an edit-mode builder that
- * already knows which existing workflow it is modifying. Used to open the
- * canvas preview at spawn time, before the first build-workflow tool call
- * returns a result.
- */
-export function getLatestBuilderTarget(node: InstanceAiAgentNode): BuilderTarget | undefined {
-	for (let i = node.children.length - 1; i >= 0; i--) {
-		const child = node.children[i];
-		const nested = getLatestBuilderTarget(child);
-		if (nested) return nested;
-		const isBuilder = child.kind === 'builder' || child.role === 'workflow-builder';
-		if (
-			isBuilder &&
-			child.targetResource?.type === 'workflow' &&
-			typeof child.targetResource.id === 'string'
-		) {
-			return { agentId: child.agentId, workflowId: child.targetResource.id };
 		}
 	}
 	return undefined;

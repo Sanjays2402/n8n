@@ -46,7 +46,7 @@ export interface BackgroundTaskDedupeKey {
 	plannedTaskId?: string;
 	/** Target workflow ID for this background task. Fallback dedupe key when there is no planned task. */
 	workflowId?: string;
-	/** Agent role (e.g. 'workflow-builder'). Scopes the workflowId fallback so different roles against the same workflow don't collide. */
+	/** Agent role (e.g. 'research'). Scopes the workflowId fallback so different roles against the same workflow don't collide. */
 	role: string;
 }
 

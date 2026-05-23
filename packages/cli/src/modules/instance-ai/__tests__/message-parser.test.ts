@@ -409,7 +409,7 @@ describe('parseStoredMessages', () => {
 						{
 							type: 'tool-result',
 							toolCallId: 'tc-2',
-							toolName: 'build-workflow-with-agent',
+							toolName: 'build-workflow',
 							result: 'ok',
 						},
 						{
@@ -451,7 +451,7 @@ describe('parseStoredMessages', () => {
 					id: 'msg-u2',
 					role: 'user',
 					content:
-						'<running-tasks>\n[Background task completed — workflow-builder]: Done\n</running-tasks>\n\n(continue)',
+						'<running-tasks>\n[Background task completed — research]: Done\n</running-tasks>\n\n(continue)',
 					createdAt: makeDate(2),
 				},
 				{
@@ -492,7 +492,7 @@ describe('parseStoredMessages', () => {
 					id: 'msg-u',
 					role: 'user',
 					content:
-						'<running-tasks>\n[Running task — workflow-builder]: taskId=build-1234\n</running-tasks>\n\nUse the Redis credential instead',
+						'<running-tasks>\n[Running task — research]: taskId=research-1234\n</running-tasks>\n\nUse the Redis credential instead',
 					createdAt: makeDate(),
 				},
 			];

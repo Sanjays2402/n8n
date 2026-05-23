@@ -85,8 +85,6 @@ function entryFromListItem(
 /** Tools whose results may contain resource info (workflows, credentials, data tables). */
 const ARTIFACT_TOOLS = new Set([
 	'build-workflow',
-	'build-workflow-with-agent',
-	'submit-workflow',
 	'apply-workflow-credentials',
 	'workflows',
 	'credentials',
@@ -110,7 +108,7 @@ function extractFromToolCall(tc: InstanceAiToolCallState, col: Collections): voi
 		}
 	}
 
-	// build-workflow / build-workflow-with-agent / submit-workflow:
+	// build-workflow:
 	// { workflowId, workflowName? } — produced. Patch calls may omit the name,
 	// so fall back to the existing entry before regressing to 'Untitled'.
 	if (typeof result.workflowId === 'string') {
@@ -197,11 +195,8 @@ function extractFromToolCall(tc: InstanceAiToolCallState, col: Collections): voi
 }
 
 /**
- * Register the agent's `targetResource` as a produced artifact when it carries
- * a concrete resource id (e.g. a workflow-builder spawned to edit an existing
- * workflow). Surfacing this at spawn time — before the first build-workflow
- * tool result arrives — lets the artifacts panel show the workflow as soon as
- * the sub-agent starts, instead of waiting for the first edit.
+ * Register an agent's `targetResource` as a produced artifact when it carries
+ * a concrete resource id.
  */
 function extractFromTargetResource(node: InstanceAiAgentNode, col: Collections): void {
 	const target = node.targetResource;

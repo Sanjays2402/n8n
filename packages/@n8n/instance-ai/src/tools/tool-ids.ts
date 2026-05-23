@@ -20,7 +20,6 @@ export const ORCHESTRATION_TOOL_IDS = {
 	CREATE_TASKS: 'create-tasks',
 	TASK_CONTROL: 'task-control',
 	DELEGATE: 'delegate',
-	BUILD_WORKFLOW_WITH_AGENT: 'build-workflow-with-agent',
 	EVAL_SETUP_WITH_AGENT: 'eval-setup-with-agent',
 	EVAL_DATA: 'eval-data',
 	RESEARCH_WITH_AGENT: 'research-with-agent',
@@ -29,11 +28,6 @@ export const ORCHESTRATION_TOOL_IDS = {
 	VERIFY_BUILT_WORKFLOW: 'verify-built-workflow',
 	REPORT_VERIFICATION_VERDICT: 'report-verification-verdict',
 	APPLY_WORKFLOW_CREDENTIALS: 'apply-workflow-credentials',
-} as const;
-
-export const WORKSPACE_TOOL_IDS = {
-	WRITE_FILE: 'write-file',
-	SUBMIT_WORKFLOW: 'submit-workflow',
 } as const;
 
 export const CREDENTIALS_TOOL_ID = DOMAIN_TOOL_IDS.CREDENTIALS;
@@ -50,8 +44,8 @@ export const ALWAYS_LOADED_TOOL_NAMES = new Set<string>([
 	DOMAIN_TOOL_IDS.CREDENTIALS,
 	DOMAIN_TOOL_IDS.WORKFLOWS,
 	DOMAIN_TOOL_IDS.DATA_TABLES,
+	DOMAIN_TOOL_IDS.BUILD_WORKFLOW,
 	DOMAIN_TOOL_IDS.PARSE_FILE,
-	ORCHESTRATION_TOOL_IDS.BUILD_WORKFLOW_WITH_AGENT,
 	ORCHESTRATION_TOOL_IDS.VERIFY_BUILT_WORKFLOW,
 	DOMAIN_TOOL_IDS.RESEARCH,
 	DOMAIN_TOOL_IDS.EVALS,

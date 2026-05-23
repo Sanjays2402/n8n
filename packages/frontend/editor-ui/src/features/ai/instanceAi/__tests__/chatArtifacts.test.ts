@@ -58,10 +58,10 @@ describe('collectInstanceAiChatArtifactChunks', () => {
 
 	it('collects agent-tree child artifacts in timeline order without duplicating root content', () => {
 		const rootContent = artifactCommand('Root report', '# Root');
-		const childContent = artifactCommand('Builder report', '# Builder');
+		const childContent = artifactCommand('Research report', '# Research');
 		const child = makeAgentNode({
-			agentId: 'agent-builder',
-			role: 'workflow-builder',
+			agentId: 'agent-research',
+			role: 'research',
 			textContent: childContent,
 			timeline: [{ type: 'text', content: childContent }],
 		});
@@ -73,7 +73,7 @@ describe('collectInstanceAiChatArtifactChunks', () => {
 					textContent: rootContent,
 					timeline: [
 						{ type: 'text', content: rootContent },
-						{ type: 'child', agentId: 'agent-builder' },
+						{ type: 'child', agentId: 'agent-research' },
 					],
 					children: [child],
 				}),
@@ -82,7 +82,7 @@ describe('collectInstanceAiChatArtifactChunks', () => {
 
 		expect(collectChatArtifacts(chunks)).toEqual([
 			{ title: 'Root report', type: 'md', content: '# Root' },
-			{ title: 'Builder report', type: 'md', content: '# Builder' },
+			{ title: 'Research report', type: 'md', content: '# Research' },
 		]);
 	});
 });

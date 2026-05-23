@@ -454,11 +454,18 @@ export class PlannedTaskCoordinator implements PlannedTaskService {
 				return graph;
 			}
 
-			// Checkpoints run inline in the orchestrator (sequential, one per follow-up run).
-			// Give them priority over background dispatch to keep sequencing clean.
+			// Checkpoints and workflow builds run inline in the orchestrator
+			// (sequential, one per follow-up run). Give them priority over
+			// background dispatch to keep sequencing clean.
 			const readyCheckpoint = readyTasks.find((t) => t.kind === 'checkpoint');
 			if (readyCheckpoint) {
 				action = { type: 'orchestrate-checkpoint', graph, tasks: [readyCheckpoint] };
+				return graph;
+			}
+
+			const readyWorkflowBuild = readyTasks.find((t) => t.kind === 'build-workflow');
+			if (readyWorkflowBuild) {
+				action = { type: 'orchestrate-build-workflow', graph, tasks: [readyWorkflowBuild] };
 				return graph;
 			}
 
