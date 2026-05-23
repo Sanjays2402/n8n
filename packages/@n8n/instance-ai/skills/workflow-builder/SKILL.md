@@ -2,12 +2,12 @@
 name: workflow-builder
 description: >-
   Builds and edits n8n workflows directly with the workflow SDK and the
-  build-workflow tool. Use for workflow creation, workflow edits, fixes,
-  node rewiring, credential-preserving patches, and workflow validation
-  retries.
+  workflows tool. Use for workflow creation, workflow edits, fixes, node
+  rewiring, credential-preserving patches, verification, and setup routing.
 recommended_tools:
-  - build-workflow
   - workflows
+  - verify-built-workflow
+  - executions
   - credentials
   - nodes
   - data-tables
@@ -22,8 +22,8 @@ platforms:
 Use this skill to build, patch, fix, and update n8n workflows in the current
 main-agent turn. Do not delegate, spawn a workflow-builder sub-agent, or call a
 workflow-builder background tool. Workflow building is direct tool use:
-discover context, write SDK code, call `build-workflow`, patch errors, and
-finish with a concise result.
+discover context, write SDK code, call `workflows(action="create"|"update")`,
+patch errors, and finish with a concise result.
 
 ## Default Procedure
 
@@ -40,13 +40,53 @@ finish with a concise result.
    user-selected credentials. If one matching credential exists, wire it. If
    multiple matching credentials exist and the user did not name one, ask once.
 5. Generate TypeScript SDK code using `@n8n/workflow-sdk`, then call
-   `build-workflow`. For small fixes, prefer `patches` over resending the full
-   workflow code.
-6. If `build-workflow` returns validation errors, patch and retry in the same
-   turn. Stop only after a successful save or a concrete blocker.
+   `workflows(action="create")` for new workflows or
+   `workflows(action="update", workflowId, ...)` for existing workflows. For
+   small fixes, prefer `patches` over resending the full workflow code.
+6. If `workflows(action="create"|"update")` returns validation errors, patch and
+   retry in the same turn. Stop only after a successful save or a concrete
+   blocker.
+7. If a mutating tool returns `denied: true`, stop immediately. Do not retry the
+   mutation in the same turn; tell the user no changes were made.
+
+## Build Lifecycle
+
+The canonical workflow-building lifecycle is: save the workflow, verify it with
+structured evidence, patch and re-verify if needed, then run setup only after
+verification succeeds. Only route setup before verification when the build
+outcome explicitly reports setup is required before verification can run.
+
+- Save with `workflows(action="create"|"update")`. Validation success proves the
+  graph can be saved; it is not enough to call the workflow done.
+- Verify with tool evidence, not builder prose. Prefer `verify-built-workflow`
+  with the workflow build outcome's `workItemId`; use `executions(action="run")`
+  when the workflow has real credentials and a testable trigger. Pass
+  trigger-appropriate `inputData`.
+- If verification exposes a workflow bug that can be patched narrowly, call
+  `workflows(action="update")`, then verify again. Keep patch attempts bounded;
+  report a concrete blocker when the issue cannot be narrowed.
+- If the verified workflow still has mocked credentials or placeholders, call
+  `workflows(action="setup")` after verification. The inline setup card is the
+  user-visible surface; do not ask the user to open the editor or run separate
+  credential setup tools.
+- If setup returns `deferred: true`, respect the user's decision and do not
+  retry with `credentials(action="setup")` or other setup tools.
+- Publish only when the user explicitly asks. Publishing is not required for
+  `verify-built-workflow` or `executions(action="run")`.
+
+In planned build follow-up turns, only perform the save phase and stop. The later
+verification follow-up must apply the verify, patch, and setup phases above.
 
 ## SDK Rules
 
+- Do not use web search to learn workflow SDK syntax. Use this skill, node
+  type definitions, and `workflows(action="create"|"update")` validation errors.
+- Always import the SDK factories directly:
+  `workflow`, `node`, `trigger`, `sticky`, `placeholder`, `newCredential`,
+  `ifElse`, `switchCase`, `merge`, `splitInBatches`, `nextBatch`,
+  `languageModel`, `memory`, `tool`, `outputParser`, `embedding`,
+  `embeddings`, `vectorStore`, `retriever`, `documentLoader`, `textSplitter`,
+  `fromAi`, and `expr`.
 - Do not specify node positions. The layout engine handles positions.
 - Use `expr('{{ $json.field }}')` for n8n expressions. Variables must be inside
   `{{ }}`.
@@ -54,16 +94,65 @@ finish with a concise result.
   especially `as const`.
 - Use string literals directly for discriminator fields such as `resource` and
   `operation`.
+- Use `workflow('local-id', 'Workflow Name').add(startTrigger).to(nextNode)`.
+  Do not use `new WorkflowBuilder()`, `workflow([...])`, `connect(...)`, or
+  helper factories like `manualTrigger()` or `set()`.
 - When editing round-tripped workflow code, remove `position` arrays and replace
   raw credential objects with `newCredential(...)`.
 - Use `newCredential('Name', 'id')` only for an explicit existing credential.
   Use `newCredential('Suggested Name')` when no exact credential is selected;
-  `build-workflow` will preserve valid credentials and mock unresolved ones.
+  `workflows(action="create"|"update")` will preserve valid credentials and
+  mock unresolved ones.
 - Never invent credential IDs, API tokens, resource IDs, Slack channels,
   Telegram chat IDs, email addresses, bearer tokens, or sample user data.
   Use `placeholder()` for user-provided values that must be collected later.
-- The credential-selection guidance above applies to outbound service calls. For inbound triggers such as Webhook or Form Trigger, keep authentication at its default `none` unless the user explicitly asks to authenticate inbound traffic.
-- Resource IDs with more than one candidate: If `explore-resources` returns more than one match and the user did not name a specific one, use `placeholder('Select <resource>')`.
+- The credential-selection guidance above applies to outbound service calls. For
+  inbound triggers such as Webhook or Form Trigger, keep authentication at its
+  default `none` unless the user explicitly asks to authenticate inbound traffic.
+- Resource IDs with more than one candidate: If `explore-resources` returns more
+  than one match and the user did not name a specific one, use
+  `placeholder('Select <resource>')`.
+
+## Core SDK Pattern
+
+For a linear workflow, define nodes first, then compose with `.add(...).to(...)`:
+
+```typescript
+import { workflow, node, trigger, expr } from '@n8n/workflow-sdk';
+
+const startTrigger = trigger({
+	type: 'n8n-nodes-base.manualTrigger',
+	version: 1,
+	config: { name: 'Manual Trigger' },
+});
+
+const setFields = node({
+	type: 'n8n-nodes-base.set',
+	version: 3.4,
+	config: {
+		name: 'Set Fields',
+		parameters: {
+			mode: 'manual',
+			assignments: {
+				assignments: [
+					{
+						id: 'message',
+						name: 'message',
+						value: 'Hello from n8n',
+						type: 'string',
+					},
+				],
+			},
+		},
+	},
+});
+
+export default workflow('example-workflow', 'Example Workflow').add(startTrigger).to(setFields);
+```
+
+For branches, use SDK connection methods: IF uses `.onTrue()` / `.onFalse()`,
+Switch uses `.onCase(index, target)`, Merge inputs use `.input(0)`,
+`.input(1)`, and linear chains use `.to(nextNode)`.
 
 ## Node Configuration Safety Rules
 
@@ -97,26 +186,31 @@ finish with a concise result.
 
 ## Existing Workflow Edits
 
-- Prefer `build-workflow` patch mode for small edits:
-  `{ workflowId, patches: [{ old_str, new_str }] }`.
+- Prefer `workflows(action="update")` patch mode for small edits:
+  `{ action: "update", workflowId, patches: [{ old_str, new_str }] }`.
 - Fetch current code with `workflows(action="get-as-code")` when you need exact
   patch anchors or need to understand existing wiring.
+- If patch mode cannot find the anchor, send full SDK code to
+  `workflows(action="update")` with the same `workflowId`.
+- Do not use `workflows(action="update-json")`; it is reserved for internal
+  eval setup flows that must patch raw WorkflowJSON after a separate approval.
 - Preserve existing credentials unless the user asks to change them.
 - Preserve webhook paths and resource references unless the edit requires a
   change.
-- Unresolved credentials and placeholders are handled in the inline setup card in the AI Assistant panel after the workflow is saved.
+- Unresolved credentials and placeholders are handled in the inline setup card in
+  the AI Assistant panel after the workflow is saved.
 
 ## Planned Build Follow-Ups
 
 When the input contains `<planned-task-follow-up type="build-workflow">`, use
 the `buildTask` payload as the source of truth. Load this skill, perform that
-one build task, call `build-workflow`, patch validation errors if needed, and
-then stop. The successful tool call records the planned task outcome for later
-checkpoint verification.
+one build task, call `workflows(action="create"|"update")`, patch validation
+errors if needed, and then stop. The successful tool call records the planned
+task outcome for later verification.
 
 ## Completion
 
 Stay silent while working unless blocked. On normal user-facing turns, finish
-with one concise sentence naming the saved workflow and any setup/testing next
-step. In planned build follow-up turns, do not write a user-facing completion
-message after the successful `build-workflow` call.
+with one concise sentence naming the saved or verified workflow and any setup
+status. In planned build follow-up turns, do not write a user-facing completion
+message after the successful workflow create/update call.

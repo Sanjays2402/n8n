@@ -28,13 +28,16 @@ describe('credential guardrail prompts', () => {
 		expect(WORKFLOW_BUILDER_SKILL).toContain(
 			'The credential-selection guidance above applies to outbound service calls.',
 		);
+		expect(WORKFLOW_BUILDER_SKILL).toContain('keep authentication at its');
 		expect(WORKFLOW_BUILDER_SKILL).toContain(
-			'keep authentication at its default `none` unless the user explicitly asks to authenticate inbound traffic',
+			'default `none` unless the user explicitly asks to authenticate inbound traffic',
 		);
 	});
 
 	it('tells the planner not to block planning on credential selection', () => {
 		expect(PLANNER_AGENT_PROMPT).toContain('Handle credentials without blocking planning');
+		expect(PLANNER_AGENT_PROMPT).toContain('Treat `ask-user` as a last resort');
+		expect(PLANNER_AGENT_PROMPT).toContain('do not ask a bundle of setup/default questions');
 		expect(PLANNER_AGENT_PROMPT).toContain('If the user already named a credential');
 		expect(PLANNER_AGENT_PROMPT).toContain('If there is exactly one matching credential');
 		expect(PLANNER_AGENT_PROMPT).toContain('auto-select it, do not ask');
@@ -50,6 +53,10 @@ describe('credential guardrail prompts', () => {
 		expect(PLANNER_AGENT_PROMPT).toContain('cannot be discovered, only chosen');
 		expect(PLANNER_AGENT_PROMPT).toContain('credential-backed resource investigation');
 		expect(PLANNER_AGENT_PROMPT).toContain('Do not turn that into a credential-choice question');
+		expect(PLANNER_AGENT_PROMPT).toContain('Never ask for account identifiers');
+		expect(PLANNER_AGENT_PROMPT).toContain('Google account email');
+		expect(PLANNER_AGENT_PROMPT).toContain('Google Calendar ID/email');
+		expect(PLANNER_AGENT_PROMPT).toContain('workflows(action="setup")');
 		expect(PLANNER_AGENT_PROMPT).toContain('Record the chosen credential name in `assumptions`');
 	});
 
@@ -65,13 +72,13 @@ describe('credential guardrail prompts', () => {
 
 	it('tells the builder to wrap ambiguous resource matches with placeholder()', () => {
 		expect(WORKFLOW_BUILDER_SKILL).toContain('Resource IDs with more than one candidate');
-		expect(WORKFLOW_BUILDER_SKILL).toContain(
-			"If `explore-resources` returns more than one match and the user did not name a specific one, use `placeholder('Select <resource>')`.",
-		);
+		expect(WORKFLOW_BUILDER_SKILL).toContain('If `explore-resources` returns more');
+		expect(WORKFLOW_BUILDER_SKILL).toContain("`placeholder('Select <resource>')`");
 	});
 
 	it('keeps builder guidance grounded in the inline setup card', () => {
-		expect(WORKFLOW_BUILDER_SKILL).toContain('inline setup card in the AI Assistant panel');
+		expect(WORKFLOW_BUILDER_SKILL).toContain('inline setup card');
+		expect(WORKFLOW_BUILDER_SKILL).toContain('the AI Assistant panel');
 		expect(WORKFLOW_BUILDER_SKILL).not.toMatch(/setup wizard/i);
 	});
 

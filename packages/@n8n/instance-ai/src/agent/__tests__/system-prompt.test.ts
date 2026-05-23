@@ -19,6 +19,14 @@ describe('getSystemPrompt', () => {
 			expect(prompt).toContain('/home/daytona/workspace');
 			expect(prompt).toContain('<command:artifact-create>');
 		});
+
+		it('instructs the agent not to retry denied tool actions', () => {
+			const prompt = getSystemPrompt({});
+
+			expect(prompt).toContain('When any tool returns `denied: true`');
+			expect(prompt).toContain('do not retry or re-issue the same mutating tool');
+			expect(prompt).toContain('no changes were made');
+		});
 	});
 
 	describe('license hints', () => {
@@ -126,12 +134,12 @@ describe('getSystemPrompt', () => {
 			expect(prompt).toContain('Do not call `plan`, `create-tasks`, or `delegate`');
 		});
 
-		it('routes existing-workflow edits through the workflow-builder skill and build-workflow', () => {
+		it('routes existing-workflow edits through the workflow-builder skill and workflows update', () => {
 			const prompt = getSystemPrompt({});
 
 			expect(prompt).toMatch(/Any edit to an existing workflow that runs the builder/);
 			expect(prompt).toContain('load the `workflow-builder` skill');
-			expect(prompt).toContain('call `build-workflow` directly');
+			expect(prompt).toContain('call `workflows(action="update")` directly');
 			expect(prompt).toContain('existing `workflowId`');
 		});
 
@@ -154,7 +162,8 @@ describe('getSystemPrompt', () => {
 		it('uses verificationReadiness as the post-build routing signal', () => {
 			const prompt = getSystemPrompt({});
 
-			expect(prompt).toContain('Post-build flow');
+			expect(prompt).toContain('Workflow lifecycle ownership');
+			expect(prompt).toContain('workflow-builder` skill owns the canonical lifecycle');
 			expect(prompt).toContain('verify-built-workflow');
 			expect(prompt).toContain('outcome.verificationReadiness');
 			expect(prompt).toContain('outcome.setupRequirement');
@@ -201,23 +210,21 @@ describe('getSystemPrompt', () => {
 			expect(prompt).toContain('do **not** call `verify-built-workflow` again');
 		});
 
-		it('leaves publish dependency ordering to the workflows tool', () => {
+		it('leaves publish policy to the workflow-builder skill', () => {
 			const prompt = getSystemPrompt({});
 
-			expect(prompt).toContain(
-				'Only call `workflows(action="publish")` when the user explicitly asks',
-			);
+			expect(prompt).toContain('publish policy');
+			expect(prompt).not.toContain('Never publish automatically');
 			expect(prompt).not.toContain('outcome.supportingWorkflowIds');
 		});
 	});
 
 	describe('checkpoint branch — in-turn patch rule + retry carve-out', () => {
-		it('allows checkpoints to reuse successful structured verification evidence', () => {
+		it('routes checkpoint verification through the workflow-builder lifecycle', () => {
 			const prompt = getSystemPrompt({});
 
-			expect(prompt).toContain('Always require structured verification evidence');
-			expect(prompt).toContain('never trust builder prose');
-			expect(prompt).toContain('without re-running verification');
+			expect(prompt).toContain('Load `workflow-builder`');
+			expect(prompt).toContain('apply its Build Lifecycle verification, patch, and setup phases');
 			expect(prompt).not.toContain('Always run your own verification');
 		});
 
@@ -226,27 +233,22 @@ describe('getSystemPrompt', () => {
 
 			expect(prompt).toContain('workflows(action="setup")');
 			expect(prompt).toContain('outcome.setupRequirement.status === "required"');
-			expect(prompt).toContain('before `complete-checkpoint`');
+			expect(prompt).toContain("follow the skill's setup phase");
 			expect(prompt).toContain('deferred: true');
-			expect(prompt).toContain(
-				'Do not call `credentials(action="setup")` or `apply-workflow-credentials`',
-			);
 		});
 
 		it('tells the orchestrator it may patch directly during a checkpoint', () => {
 			const prompt = getSystemPrompt({});
 
-			expect(prompt).toContain('patch in place');
-			expect(prompt).toContain('load `workflow-builder`');
-			expect(prompt).toContain('call `build-workflow` with `workflowId` + targeted `patches`');
-			expect(prompt).toContain('Re-run verification after the patch');
+			expect(prompt).toContain('If the skill lifecycle patches the workflow in place');
+			expect(prompt).toContain('re-run verification before completing the checkpoint');
 			expect(prompt).toContain('complete-checkpoint');
 		});
 
 		it('keeps checkpoint patch attempts bounded', () => {
 			const prompt = getSystemPrompt({});
 
-			expect(prompt).toMatch(/Keep the patch count small/);
+			expect(prompt).toMatch(/cannot be narrowed/);
 			expect(prompt).toMatch(/within two rounds/);
 		});
 	});
